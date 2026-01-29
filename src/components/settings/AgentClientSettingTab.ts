@@ -496,6 +496,120 @@ export class AgentClientSettingTab extends PluginSettingTab {
 			);
 
 		// ─────────────────────────────────────────────────────────────────────
+		// Model Complexity Switching (Experimental)
+		// ─────────────────────────────────────────────────────────────────────
+
+		new Setting(containerEl)
+			.setName("Model complexity switching (experimental)")
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName("Enable auto model switching")
+			.setDesc(
+				"Automatically switch between models based on prompt complexity. Simple prompts use a faster model, complex prompts use a more capable model.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(
+						this.plugin.settings.modelComplexitySwitching.enabled,
+					)
+					.onChange(async (value) => {
+						this.plugin.settings.modelComplexitySwitching.enabled =
+							value;
+						await this.plugin.saveSettings();
+						this.display();
+					}),
+			);
+
+		if (this.plugin.settings.modelComplexitySwitching.enabled) {
+			new Setting(containerEl)
+				.setName("Simple prompt model")
+				.setDesc(
+					"Model ID to use for simple prompts (e.g., claude-3-5-haiku-latest). Must match an available model from your agent.",
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("claude-3-5-haiku-latest")
+						.setValue(
+							this.plugin.settings.modelComplexitySwitching
+								.simpleModelId,
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.modelComplexitySwitching.simpleModelId =
+								value.trim();
+							await this.plugin.saveSettings();
+						}),
+				);
+
+			new Setting(containerEl)
+				.setName("Complex prompt model")
+				.setDesc(
+					"Model ID to use for complex prompts (e.g., claude-sonnet-4-20250514). Must match an available model from your agent.",
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("claude-sonnet-4-20250514")
+						.setValue(
+							this.plugin.settings.modelComplexitySwitching
+								.complexModelId,
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.modelComplexitySwitching.complexModelId =
+								value.trim();
+							await this.plugin.saveSettings();
+						}),
+				);
+
+			new Setting(containerEl)
+				.setName("Simple threshold")
+				.setDesc(
+					"Complexity score (0-100) at or below which prompts are considered simple. Default: 30",
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("30")
+						.setValue(
+							String(
+								this.plugin.settings.modelComplexitySwitching
+									.thresholds.simpleMax,
+							),
+						)
+						.onChange(async (value) => {
+							const num = parseInt(value, 10);
+							if (!isNaN(num) && num >= 0 && num <= 100) {
+								this.plugin.settings.modelComplexitySwitching.thresholds.simpleMax =
+									num;
+								await this.plugin.saveSettings();
+							}
+						}),
+				);
+
+			new Setting(containerEl)
+				.setName("Moderate threshold")
+				.setDesc(
+					"Complexity score (0-100) at or below which prompts are considered moderate. Above this is complex. Default: 60",
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("60")
+						.setValue(
+							String(
+								this.plugin.settings.modelComplexitySwitching
+									.thresholds.moderateMax,
+							),
+						)
+						.onChange(async (value) => {
+							const num = parseInt(value, 10);
+							if (!isNaN(num) && num >= 0 && num <= 100) {
+								this.plugin.settings.modelComplexitySwitching.thresholds.moderateMax =
+									num;
+								await this.plugin.saveSettings();
+							}
+						}),
+				);
+		}
+
+		// ─────────────────────────────────────────────────────────────────────
 		// Developer
 		// ─────────────────────────────────────────────────────────────────────
 
