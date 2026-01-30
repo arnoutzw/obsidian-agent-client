@@ -42,6 +42,7 @@ import { useChat } from "../../hooks/useChat";
 import { usePermission } from "../../hooks/usePermission";
 import { useAutoExport } from "../../hooks/useAutoExport";
 import { useSessionHistory } from "../../hooks/useSessionHistory";
+import { useModelComplexitySwitching } from "../../hooks/useModelComplexitySwitching";
 
 // Domain model imports
 import type {
@@ -135,6 +136,9 @@ function ChatComponent({
 	// Custom Hooks
 	// ============================================================
 	const settings = useSettings(plugin);
+	const modelComplexitySwitching = useModelComplexitySwitching(
+		plugin.settingsStore,
+	);
 
 	// ============================================================
 	// Agent ID State (synced with Obsidian view state)
@@ -621,6 +625,31 @@ function ChatComponent({
 		async (content: string, images?: ImagePromptContent[]) => {
 			const isFirstMessage = messages.length === 0;
 
+			// Analyze prompt complexity and switch model if needed (before sending)
+			if (
+				modelComplexitySwitching.isEnabled &&
+				session.models?.currentModelId
+			) {
+				const { analysis, recommendedModelId } =
+					modelComplexitySwitching.analyzeAndRecommend(
+						content,
+						session.models.currentModelId,
+						session.models,
+					);
+
+				logger.log(
+					`[ChatView] Prompt complexity: ${analysis.level} (score: ${analysis.score})`,
+					analysis.factors,
+				);
+
+				if (recommendedModelId) {
+					logger.log(
+						`[ChatView] Switching model: ${session.models.currentModelId} -> ${recommendedModelId}`,
+					);
+					await agentSession.setModel(recommendedModelId);
+				}
+			}
+
 			await chat.sendMessage(content, {
 				// TODO: Refactor to handle settings inside useAutoMention hook
 				// Current: Pass null when setting is OFF to disable auto-mention
@@ -650,9 +679,12 @@ function ChatComponent({
 			plugin,
 			messages.length,
 			session.sessionId,
+			session.models,
 			sessionHistory,
 			logger,
 			settings.autoMentionActiveNote,
+			modelComplexitySwitching,
+			agentSession,
 		],
 	);
 

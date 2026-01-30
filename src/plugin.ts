@@ -40,6 +40,26 @@ export type SendMessageShortcut = "enter" | "cmd-enter";
  */
 export type ChatViewLocation = "right-tab" | "editor-tab" | "editor-split";
 
+/**
+ * Model complexity switching settings.
+ * Automatically switches between models based on prompt complexity.
+ */
+export interface ModelComplexitySwitchingSettings {
+	/** Whether automatic model switching is enabled */
+	enabled: boolean;
+	/** Model ID to use for simple prompts (faster, cheaper) */
+	simpleModelId: string;
+	/** Model ID to use for complex prompts (more capable) */
+	complexModelId: string;
+	/** Thresholds for complexity classification */
+	thresholds: {
+		/** Score at or below this is "simple" (0-100) */
+		simpleMax: number;
+		/** Score at or below this is "moderate", above is "complex" (0-100) */
+		moderateMax: number;
+	};
+}
+
 export interface AgentClientPluginSettings {
 	gemini: GeminiAgentSettings;
 	claude: ClaudeAgentSettings;
@@ -77,6 +97,8 @@ export interface AgentClientPluginSettings {
 		maxSelectionLength: number;
 		showEmojis: boolean;
 	};
+	// Model complexity switching (experimental)
+	modelComplexitySwitching: ModelComplexitySwitchingSettings;
 	// Locally saved session metadata (for agents without session/list support)
 	savedSessions: SavedSessionInfo[];
 }
@@ -133,6 +155,15 @@ const DEFAULT_SETTINGS: AgentClientPluginSettings = {
 		maxNoteLength: 10000,
 		maxSelectionLength: 10000,
 		showEmojis: true,
+	},
+	modelComplexitySwitching: {
+		enabled: false,
+		simpleModelId: "",
+		complexModelId: "",
+		thresholds: {
+			simpleMax: 30,
+			moderateMax: 60,
+		},
 	},
 	savedSessions: [],
 };
@@ -907,6 +938,60 @@ export default class AgentClientPlugin extends Plugin {
 					};
 				}
 				return DEFAULT_SETTINGS.displaySettings;
+			})(),
+			modelComplexitySwitching: (() => {
+				const rawMcs = rawSettings.modelComplexitySwitching as
+					| Record<string, unknown>
+					| null
+					| undefined;
+				if (rawMcs && typeof rawMcs === "object") {
+					const rawThresholds = rawMcs.thresholds as
+						| Record<string, unknown>
+						| null
+						| undefined;
+					return {
+						enabled:
+							typeof rawMcs.enabled === "boolean"
+								? rawMcs.enabled
+								: DEFAULT_SETTINGS.modelComplexitySwitching
+										.enabled,
+						simpleModelId:
+							typeof rawMcs.simpleModelId === "string"
+								? rawMcs.simpleModelId
+								: DEFAULT_SETTINGS.modelComplexitySwitching
+										.simpleModelId,
+						complexModelId:
+							typeof rawMcs.complexModelId === "string"
+								? rawMcs.complexModelId
+								: DEFAULT_SETTINGS.modelComplexitySwitching
+										.complexModelId,
+						thresholds:
+							rawThresholds && typeof rawThresholds === "object"
+								? {
+										simpleMax:
+											typeof rawThresholds.simpleMax ===
+												"number" &&
+											rawThresholds.simpleMax >= 0 &&
+											rawThresholds.simpleMax <= 100
+												? rawThresholds.simpleMax
+												: DEFAULT_SETTINGS
+														.modelComplexitySwitching
+														.thresholds.simpleMax,
+										moderateMax:
+											typeof rawThresholds.moderateMax ===
+												"number" &&
+											rawThresholds.moderateMax >= 0 &&
+											rawThresholds.moderateMax <= 100
+												? rawThresholds.moderateMax
+												: DEFAULT_SETTINGS
+														.modelComplexitySwitching
+														.thresholds.moderateMax,
+									}
+								: DEFAULT_SETTINGS.modelComplexitySwitching
+										.thresholds,
+					};
+				}
+				return DEFAULT_SETTINGS.modelComplexitySwitching;
 			})(),
 			savedSessions: Array.isArray(rawSettings.savedSessions)
 				? (rawSettings.savedSessions as SavedSessionInfo[])
